@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useBackendLibrary } from "@/hooks/useBackendLibrary";
+import { TrackCard } from "@/components/TrackCard";
 
 export default function Index() {
   const { artists, albums, tracks, playlists, loading } = useBackendLibrary();
@@ -93,24 +94,26 @@ export default function Index() {
                 <CardTitle>🎵 Tracks</CardTitle>
               </CardHeader>
               <CardContent>
+                <TrackCard
+                  title="Ejemplo"
+                  artistName="Nirvana"
+                  artistUrl="/artist/artist_nirvana_123"
+                  albumName="Nevermind"
+                  albumUrl="/album/album_nevermind_456"
+                  duration={301}
+                />
+
                 <ul className="space-y-1 text-sm">
                   {filteredTracks.map((t) => (
                     <li key={t.key}>
-                      <span className="font-medium">{t.title}</span>{" "}
-                      <span className="text-xs text-muted-foreground">
-                        ({t.duration ?? 0}s, plays: {t.plays ?? 0})
-                      </span>
-                      {t.albumKey && (
-                        <>
-                          {" · "}
-                          <Link
-                            to={`/album/${t.albumKey}`}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            ver álbum
-                          </Link>
-                        </>
-                      )}
+                      <TrackCard
+                        title={t.title}
+                        artistName={t.artistKey || "Artista desconocido"}
+                        artistUrl={`/artist/${t.artistKey}`}
+                        albumName={t.albumKey}
+                        albumUrl={`/album/${t.albumKey}`}
+                        duration={t.duration}
+                      />
                     </li>
                   ))}
                   {filteredTracks.length === 0 && (

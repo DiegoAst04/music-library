@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from .db import aql, exists_doc
-from .config import PORT
+from .config import settings
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
