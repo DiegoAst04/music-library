@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useBackendLibrary } from "@/hooks/useBackendLibrary";
 import { TrackCard } from "@/components/TrackCard";
+import { AlbumCard } from "@/components/AlbumCard";
 
 export default function Index() {
   const { artists, albums, tracks, playlists, loading } = useBackendLibrary();
@@ -103,7 +104,7 @@ export default function Index() {
                   duration={301}
                 />
 
-                <ul className="space-y-1 text-sm">
+                <ul className="text-sm">
                   {filteredTracks.map((t) => (
                     <li key={t.key}>
                       <TrackCard
@@ -162,30 +163,16 @@ export default function Index() {
                 <CardTitle>💿 Álbumes</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-1 text-sm">
+                <ul className="space-y-1 text-sm flex flex-wrap">
                   {albums.map((al) => (
                     <li key={al.key}>
-                      <Link
-                        to={`/album/${al.key}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {al.title}
-                      </Link>
-                      <span className="text-xs text-muted-foreground">
-                        {" "}
-                        ({al.year ?? "s/f"})
-                      </span>
-                      {al.artistKey && (
-                        <>
-                          {" · "}
-                          <Link
-                            to={`/artist/${al.artistKey}`}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            ver artista
-                          </Link>
-                        </>
-                      )}
+                      <AlbumCard
+                        title={al.title}
+                        artistName={al.artistKey}
+                        artistKey={`/artist/${al.artistKey}`}
+                        year={al.year}
+                        albumKey={al.key}
+                      />
                     </li>
                   ))}
                 </ul>

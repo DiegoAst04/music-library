@@ -1,4 +1,4 @@
-import { Music, Play, Trash2 } from "lucide-react";
+import { Music, Play } from "lucide-react";
 import React from "react";
 
 type TrackCardProps = {
@@ -37,7 +37,6 @@ const TrackCard: React.FC<TrackCardProps> = ({
   albumName = "Álbum desconocido",
   albumUrl,
   duration,
-  artworkUrl,
   className,
 }) => {
   const formatted = formatDuration(duration);
