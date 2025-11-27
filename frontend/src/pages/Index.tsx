@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useBackendLibrary } from "@/hooks/useBackendLibrary";
 import { TrackCard } from "@/components/TrackCard";
 import { AlbumCard } from "@/components/AlbumCard";
+import { ArtistCard } from "@/components/ArtistCard";
 
 export default function Index() {
   const { artists, albums, tracks, playlists, loading } = useBackendLibrary();
@@ -33,6 +34,28 @@ export default function Index() {
         return acc;
       }, {}),
     [tracks]
+  );
+
+  const trackCountByArtistKey = useMemo(
+    () =>
+      tracks.reduce((acc: Record<string, number>, t: any) => {
+        if (t.artistKey) {
+          acc[t.artistKey] = (acc[t.artistKey] || 0) + 1;
+        }
+        return acc;
+      }, {}),
+    [tracks]
+  );
+
+  const albumCountByArtistKey = useMemo(
+    () =>
+      albums.reduce((acc: Record<string, number>, al: any) => {
+        if (al.artistKey) {
+          acc[al.artistKey] = (acc[al.artistKey] || 0) + 1;
+        }
+        return acc;
+      }, {}),
+    [albums]
   );
 
   if (loading) {
@@ -159,23 +182,21 @@ export default function Index() {
                 <CardTitle>🎤 Artistas</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-1 text-sm">
-                  {artists.map((a: any) => (
+                <ul className="space-y-1 text-sm flex flex-wrap">
+                  {artists.map((a: any) => {
+                    const trackCount = trackCountByArtistKey[a.key] ?? 0;
+                    const albumCount = albumCountByArtistKey[a.key] ?? 0;
+                    return (
                     <li key={a.key}>
-                      <Link
-                        to={`/artist/${a.key}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {a.name}
-                      </Link>
-                      {a.country && (
-                        <span className="text-xs text-muted-foreground">
-                          {" "}
-                          · {a.country}
-                        </span>
-                      )}
+                      <ArtistCard
+                        artistName={a.name}
+                        albumCount={albumCount || 0}
+                        songCount={trackCount || 0}
+                        artistKey={a.key}
+                      />
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </CardContent>
             </Card>
