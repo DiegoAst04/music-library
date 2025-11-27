@@ -10,6 +10,7 @@ import ArtistPage from "@/pages/ArtistPage";
 import AlbumPage from "@/pages/AlbumPage";
 import PlaylistPage from "@/pages/PlaylistPage";
 import NotFound from "@/pages/NotFound";
+import Manage from "@/pages/Manage";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
+
         {/* Navbar simple */}
         <header className="flex items-center gap-4 px-4 py-2 border-b bg-background">
           <Link to="/" className="font-bold text-lg">
@@ -26,9 +28,11 @@ const App = () => (
             to="/queries"
             className="text-sm text-muted-foreground hover:underline"
           >
-            Búsqueda avanzada
+            Explorar (Consultas)
           </Link>
+
         </header>
+
 
         <Routes>
           <Route path="/" element={<Index />} />

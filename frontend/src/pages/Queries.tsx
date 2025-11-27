@@ -1,15 +1,17 @@
 // src/pages/Queries.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { apiGet } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useBackendLibrary } from "@/hooks/useBackendLibrary";
+import { TrackCard } from "@/components/TrackCard";
+import { AlbumCard } from "@/components/AlbumCard";
 
 type QueryId =
   | "topTracks"
   | "albumTracks"
   | "artistAlbums"
-  | "userPlaylists"
   | "playlistTracks"
   | "trackFull"
   | "searchTracks"
@@ -30,7 +32,6 @@ type ParamDef = {
 type QueryConfig = {
   id: QueryId;
   label: string;
-  description: string;
   params: ParamDef[];
   buildRequest: (values: Record<string, string>) => {
     url: string;
@@ -41,9 +42,7 @@ type QueryConfig = {
 const QUERY_CONFIGS: QueryConfig[] = [
   {
     id: "topTracks",
-    label: "Top N tracks por reproducciones",
-    description:
-      "Devuelve los tracks más reproducidos ordenados por número de plays (descendente).",
+    label: "Top tracks más escuchados",
     params: [
       {
         name: "n",
@@ -61,8 +60,6 @@ const QUERY_CONFIGS: QueryConfig[] = [
   {
     id: "albumTracks",
     label: "Tracks de un álbum",
-    description:
-      "Lista todas las canciones que pertenecen a un álbum específico.",
     params: [
       {
         name: "albumKey",
@@ -78,8 +75,6 @@ const QUERY_CONFIGS: QueryConfig[] = [
   {
     id: "artistAlbums",
     label: "Álbumes de un artista",
-    description:
-      "Muestra todos los álbumes asociados a un artista de la base de datos.",
     params: [
       {
         name: "artistKey",
@@ -93,27 +88,8 @@ const QUERY_CONFIGS: QueryConfig[] = [
     }),
   },
   {
-    id: "userPlaylists",
-    label: "Playlists de un usuario",
-    description:
-      "Devuelve las playlists que pertenecen a un usuario específico.",
-    params: [
-      {
-        name: "userKey",
-        label: "Clave del usuario",
-        defaultValue: "u1",
-        placeholder: "u1",
-      },
-    ],
-    buildRequest: (v) => ({
-      url: `/users/${v.userKey || "u1"}/playlists`,
-    }),
-  },
-  {
     id: "playlistTracks",
-    label: "Tracks de una playlist",
-    description:
-      "Lista las canciones que hay dentro de una playlist, ordenadas por fecha de inserción.",
+    label: "Tracks de una playlist (orden por fecha de inserción)",
     params: [
       {
         name: "playlistKey",
@@ -136,8 +112,6 @@ const QUERY_CONFIGS: QueryConfig[] = [
   {
     id: "trackFull",
     label: "Detalle completo de un track",
-    description:
-      "Muestra la información del track junto con su álbum y artista relacionados.",
     params: [
       {
         name: "trackKey",
@@ -152,9 +126,7 @@ const QUERY_CONFIGS: QueryConfig[] = [
   },
   {
     id: "searchTracks",
-    label: "Búsqueda de tracks por prefijo",
-    description:
-      "Permite buscar canciones cuyo título comienza con un prefijo dado (LIKE).",
+    label: "Buscar canciones por nombre",
     params: [
       {
         name: "prefix",
@@ -180,9 +152,7 @@ const QUERY_CONFIGS: QueryConfig[] = [
   },
   {
     id: "genreTracks",
-    label: "Tracks por género",
-    description:
-      "Lista tracks que están asociados a un género musical específico.",
+    label: "Tracks por género musical",
     params: [
       {
         name: "genreKey",
@@ -205,9 +175,7 @@ const QUERY_CONFIGS: QueryConfig[] = [
   },
   {
     id: "artistTracksByYear",
-    label: "Tracks de un artista por rango de años",
-    description:
-      "Muestra las canciones de un artista cuyos álbumes están dentro de un rango de años.",
+    label: "Tracks de un artista por años (rango)",
     params: [
       {
         name: "artistKey",
@@ -240,9 +208,7 @@ const QUERY_CONFIGS: QueryConfig[] = [
   },
   {
     id: "trackRecommendations",
-    label: "Recomendaciones a partir de un track",
-    description:
-      "Busca canciones recomendadas a partir de los géneros del track seleccionado.",
+    label: "Recomendaciones a partir de un track (BFS)",
     params: [
       {
         name: "trackKey",
@@ -266,8 +232,6 @@ const QUERY_CONFIGS: QueryConfig[] = [
   {
     id: "countTracksByArtist",
     label: "Conteo de tracks por artista",
-    description:
-      "Devuelve cuántos tracks están asociados a un artista (vía sus álbumes).",
     params: [
       {
         name: "artistKey",
@@ -282,9 +246,7 @@ const QUERY_CONFIGS: QueryConfig[] = [
   },
   {
     id: "artistTraversal",
-    label: "Recorrido en grafo: artista → tracks",
-    description:
-      "Ejecuta un traversal sobre el grafo musicGraph desde un artista hasta los tracks relacionados.",
+    label: "Recorrido: artista → tracks (DFS)",
     params: [
       {
         name: "artistKey",
@@ -313,23 +275,98 @@ export default function Queries() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+  // Datos base de la biblioteca
+  const { artists, albums, tracks } = useBackendLibrary();
+
+  const artistByKey = useMemo(
+    () => Object.fromEntries(artists.map((a: any) => [a.key, a])),
+    [artists]
+  );
+
+  const albumByKey = useMemo(
+    () => Object.fromEntries(albums.map((al: any) => [al.key, al])),
+    [albums]
+  );
+
+  const trackByKey = useMemo(
+    () => Object.fromEntries(tracks.map((t: any) => [t.key, t])),
+    [tracks]
+  );
+
+  const trackCountByAlbumKey = useMemo(
+    () =>
+      tracks.reduce((acc: Record<string, number>, t: any) => {
+        if (t.albumKey) {
+          acc[t.albumKey] = (acc[t.albumKey] || 0) + 1;
+        }
+        return acc;
+      }, {}),
+    [tracks]
+  );
+
   const selectedConfig =
     QUERY_CONFIGS.find((c) => c.id === selectedId) ?? QUERY_CONFIGS[0];
 
-  // Inicializar campos al cambiar de consulta
+  const queryGroups = useMemo(
+    () => [
+      {
+        title: "Tendencias y descubrimiento",
+        description: "Explora qué se escucha más y descubre nueva música.",
+        items: [
+          "topTracks",
+          "trackRecommendations",
+          "genreTracks",
+          "searchTracks",
+        ] as QueryId[],
+      },
+      {
+        title: "Por artista o álbum",
+        description: "Navega la biblioteca a partir de artistas y álbumes.",
+        items: [
+          "artistAlbums",
+          "artistTracksByYear",
+          "albumTracks",
+          "artistTraversal",
+        ] as QueryId[],
+      },
+      {
+        title: "Playlists y estadísticas",
+        description: "Explora playlists y estadísticas resumidas.",
+        items: [
+          "playlistTracks",
+          "countTracksByArtist",
+          "trackFull",
+        ] as QueryId[],
+      },
+    ],
+    []
+  );
+
+  // Reset de filtros al cambiar de consulta
   useEffect(() => {
     const initial: Record<string, string> = {};
     selectedConfig.params.forEach((p) => {
       initial[p.name] = p.defaultValue ?? "";
     });
     setValues(initial);
-  }, [selectedId]);
+    setResult(null);
+  }, [selectedId, selectedConfig]);
 
   const handleChange = (name: string, value: string) => {
     setValues((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleRun = async () => {
+    // Validación para rango de años
+    if (selectedId === "artistTracksByYear") {
+      const from = Number(values.year_from);
+      const to = Number(values.year_to);
+      if (!Number.isNaN(from) && !Number.isNaN(to) && from > to) {
+        alert("El año inicial no puede ser mayor que el año final.");
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       const { url, params } = selectedConfig.buildRequest(values);
@@ -344,99 +381,487 @@ export default function Queries() {
     }
   };
 
+  // Normalización de tracks
+  const tracksResult: any[] = useMemo(() => {
+    if (!result || (result as any).error) return [];
+
+    let raw: any[] = [];
+
+    switch (selectedId) {
+      case "topTracks":
+      case "albumTracks":
+      case "playlistTracks":
+      case "searchTracks":
+      case "genreTracks":
+      case "artistTracksByYear":
+      case "trackRecommendations":
+        raw = Array.isArray(result) ? result : [];
+        break;
+
+      case "trackFull":
+        if (result.track) raw = [result.track];
+        break;
+
+      case "artistTraversal":
+        if (Array.isArray((result as any).tracks)) {
+          raw = (result as any).tracks;
+        } else if (
+          Array.isArray(result) &&
+          result.length &&
+          result[0].title
+        ) {
+          raw = result;
+        }
+        break;
+
+      default:
+        raw = [];
+    }
+
+    return raw.map((t: any) => {
+      const key = t.key ?? t._key ?? t.trackKey;
+      const base = key && trackByKey[key] ? trackByKey[key] : {};
+      return {
+        ...base,
+        ...t,
+        key: key ?? base.key,
+      };
+    });
+  }, [result, selectedId, trackByKey]);
+
+  const albumsResult: any[] = useMemo(() => {
+    if (!result || (result as any).error) return [];
+
+    switch (selectedId) {
+      case "artistAlbums":
+        return Array.isArray(result) ? result : [];
+      default:
+        return [];
+    }
+  }, [result, selectedId]);
+
+  const hasPrettyCards =
+    tracksResult.length > 0 || albumsResult.length > 0;
+
+  // Datos para conteo de tracks por artista
+  const isCountQuery = selectedId === "countTracksByArtist";
+  const countData = isCountQuery && result && !(result as any).error ? result : null;
+
   return (
-    <div className="p-6 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
-      {/* Columna izquierda: inputs + resultado */}
-      <div className="space-y-4">
-        {/* Configuración / parámetros de la consulta */}
-        <Card>
-          <CardHeader>
-            <CardTitle>🔧 Configuración de la consulta</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-semibold">
-                Consulta seleccionada:
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {selectedConfig.description}
-              </p>
-            </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold">Explorar biblioteca musical</h1>
+        <p className="text-sm text-muted-foreground max-w-2xl">
+          Explora y consulta tendencias, relaciones y estadísticas.
+        </p>
+      </header>
 
-            {selectedConfig.params.length > 0 && (
-              <div className="space-y-3">
-                {selectedConfig.params.map((p) => (
-                  <div key={p.name} className="space-y-1">
-                    <label className="text-xs font-medium">
-                      {p.label}
-                    </label>
-                    <Input
-                      type={p.type === "number" ? "number" : "text"}
-                      value={values[p.name] ?? ""}
-                      onChange={(e) =>
-                        handleChange(p.name, e.target.value)
-                      }
-                      placeholder={p.placeholder}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+      <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)]">
+        {/* IZQUIERDA */}
+        <div className="space-y-4">
+          {/* Filtros */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="space-y-1">
+                <span className="block text-sm font-semibold">
+                  {selectedConfig.label}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedConfig.params.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Filtros
+                  </p>
+                  {selectedConfig.params.map((p) => (
+                    <div key={p.name} className="space-y-1">
+                      <label className="text-xs font-medium">
+                        {p.label}
+                      </label>
+                      <Input
+                        type={p.type === "number" ? "number" : "text"}
+                        value={values[p.name] ?? ""}
+                        onChange={(e) =>
+                          handleChange(p.name, e.target.value)
+                        }
+                        placeholder={p.placeholder}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            <Button
-              onClick={handleRun}
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? "Buscando..." : "Buscar"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Resultado */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              📤 Resultado de la consulta{" "}
-              <span className="block text-xs text-muted-foreground font-normal">
-                (Salida en formato JSON)
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="bg-slate-950 text-slate-100 text-xs p-3 rounded-lg overflow-auto max-h-[520px]">
-              {result === null
-                ? "Selecciona una consulta y presiona «Buscar»."
-                : JSON.stringify(result, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Columna derecha: lista de consultas */}
-      <div>
-        <Card>
-          <CardHeader>
-            <CardTitle>📚 Consultas preestablecidas (lectura)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {QUERY_CONFIGS.map((config) => (
-              <button
-                key={config.id}
-                type="button"
-                onClick={() => setSelectedId(config.id)}
-                className={`w-full text-left text-sm px-3 py-2 rounded-md border ${
-                  config.id === selectedId
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-muted border-border"
-                }`}
+              <Button
+                onClick={handleRun}
+                className="w-full"
+                disabled={loading}
               >
-                {config.label}
-              </button>
-            ))}
-          </CardContent>
-        </Card>
+                {loading ? "Consultando..." : "Aplicar filtros"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Resultados */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="space-y-1">
+                <span className="block text-sm font-semibold">
+                  Resultados obtenidos
+                </span>
+                {hasPrettyCards || countData ? (
+                  <span className="block text-xs text-muted-foreground font-normal">
+                    
+                  </span>
+                ) : (
+                  <span className="block text-xs text-muted-foreground font-normal">
+                    Ejecuta una exploración.
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+
+
+
+          {/* Detalle extra para trackFull */}
+          {selectedId === "trackFull" &&
+            result &&
+            !(result as any).error &&
+            (result as any).track && (() => {
+              const t = (result as any).track;
+
+              const artistName =
+                result.artist?.name ??
+                (t.artistKey && artistByKey[t.artistKey]?.name) ??
+                t.artistName ??
+                t.artistKey ??
+                "Desconocido";
+          
+              const albumTitle =
+                result.album?.title ??
+                (t.albumKey && albumByKey[t.albumKey]?.title) ??
+                t.albumTitle ??
+                t.albumKey ??
+                "Desconocido";
+
+              // Géneros: puede venir como result.genres o track.genres
+              const rawGenres = Array.isArray((result as any).genres)
+                ? (result as any).genres
+                : Array.isArray(t.genres)
+                ? t.genres
+                : [];
+
+              const genresText =
+                rawGenres.length > 0
+                  ? rawGenres
+                      .map((g: any) => g.name ?? g.key ?? g._key ?? String(g))
+                      .join(", ")
+                  : null;
+
+              // Plays: probamos varios campos
+              const plays =
+                t.plays ??
+                t.playCount ??
+                t.totalPlays ??
+                t.stats?.plays;
+
+              return (
+                <div className="space-y-1 text-sm">
+                  <p className="font-semibold">
+                    {t.title ?? "Track sin título"}
+                  </p>
+
+                  <p className="text-xs text-muted-foreground">
+                    Artista: <span className="font-semibold">{artistName}</span>
+                  </p>
+
+                  <p className="text-xs text-muted-foreground">
+                    Álbum: <span className="font-semibold">{albumTitle}</span>
+                  </p>
+
+                  {genresText && (
+                    <p className="text-xs text-muted-foreground">
+                      Géneros: <span className="font-semibold">{genresText}</span>
+                    </p>
+                  )}
+
+                  {plays != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Reproducciones:{" "}
+                      <span className="font-semibold">{plays}</span>
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+
+              {/* TRACKS */}
+              {tracksResult.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Canciones encontradas ({tracksResult.length})
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    {tracksResult.map((t: any, idx: number) => {
+                      const artist =
+                        t.artistKey && artistByKey[t.artistKey]
+                          ? artistByKey[t.artistKey]
+                          : undefined;
+                      const album =
+                        t.albumKey && albumByKey[t.albumKey]
+                          ? albumByKey[t.albumKey]
+                          : undefined;
+
+                      const isTop = selectedId === "topTracks";
+                      const isPlaylistTracks =
+                        selectedId === "playlistTracks";
+
+                      const plays =
+                        t.plays ?? t.playCount ?? t.totalPlays;
+
+                      // Fecha / año para playlist (si viene en el resultado)
+                      const addedAtRaw =
+                        t.addedAt ??
+                        t.added_at ??
+                        t.date ??
+                        t.insertedAt;
+                      let playlistLabel: string | undefined;
+                      if (addedAtRaw) {
+                        const d = new Date(addedAtRaw);
+                        playlistLabel = isNaN(d.getTime())
+                          ? String(addedAtRaw)
+                          : d.toISOString().slice(0, 10); // YYYY-MM-DD
+                      }
+
+                      let rightLabel: string | undefined;
+                      if (isTop && plays != null) {
+                        rightLabel = `${plays} reproducciones`;
+                      } else if (isPlaylistTracks && playlistLabel) {
+                        rightLabel = playlistLabel;
+                      }
+
+                      const year =
+                        t.year ??
+                        t.releaseYear ??
+                        album?.year;
+
+                      return (
+                        <li
+                          key={t.key ?? t._key ?? `track-${idx}`}
+                        >
+                          <TrackCard
+                            title={t.title ?? t.name ?? "Sin título"}
+                            artistName={
+                              t.artistName ||
+                              artist?.name ||
+                              t.artistKey ||
+                              "Artista desconocido"
+                            }
+                            artistUrl={
+                              t.artistKey
+                                ? `/artist/${t.artistKey}`
+                                : "#"
+                            }
+                            albumName={
+                              t.albumTitle ||
+                              album?.title ||
+                              t.albumKey ||
+                              "Álbum desconocido"
+                            }
+                            albumUrl={
+                              t.albumKey ? `/album/${t.albumKey}` : "#"
+                            }
+                            duration={t.duration}
+                            year={year}
+                            rightLabel={rightLabel}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {/* ALBUMS */}
+              {albumsResult.length > 0 && (
+                <div className="space-y-3">
+                  {/* Nombre del artista (punto 2) */}
+                  {selectedId === "artistAlbums" && (
+                    <div className="text-xs text-muted-foreground">
+                      {(() => {
+                        const first = albumsResult[0];
+
+                        const akFromAlbum = first.artistKey;
+                        const akFromFilter = values.artistKey;
+                        const ak = akFromAlbum ?? akFromFilter;
+
+                        const artist =
+                          ak && artistByKey[ak] ? artistByKey[ak] : undefined;
+
+                        const name =
+                          artist?.name ?? ak ?? "Artista desconocido";
+
+                        return (
+                          <span>
+                            Artista:{" "}
+                            <span className="font-semibold">{name}</span>
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Álbumes encontrados ({albumsResult.length})
+                  </p>
+                  <ul className="flex flex-wrap gap-4 text-sm">
+
+                    {albumsResult.map((al: any) => {
+                      const artistKey = al.artistKey ?? values.artistKey;
+                      const artist = artistKey ? artistByKey[artistKey] : undefined;
+
+                      const artistName =
+                        artist?.name ??
+                        artistKey ??
+                        "Artista desconocido";
+
+                      const trackCount =
+                        trackCountByAlbumKey[al.key] ?? 0;
+
+                      return (
+                        <li key={al.key}>
+                          <AlbumCard
+                            title={al.title}
+                            artistName={artistName}
+                            artistKey={artistKey ? `/artist/${artistKey}` : "#"}
+                            year={al.year}
+                            albumKey={al.key}
+                            trackCount={trackCount}
+                          />
+                        </li>
+                      );
+                    })}
+
+                  </ul>
+                </div>
+              )}
+
+              {/* Conteo de tracks por artista */}
+              {countData && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Conteo de tracks por artista
+                  </p>
+                  <div className="text-sm">
+                    {(() => {
+                      const artistKey = countData.artistKey;
+                      const artist =
+                        artistKey && artistByKey[artistKey];
+                      const name =
+                        artist?.name ||
+                        countData.artistName ||
+                        artistKey ||
+                        "Artista desconocido";
+
+                      const total =
+                        countData.trackCount ??
+                        countData.count ??
+                        countData.total ??
+                        countData.totalTracks ??
+                        countData.tracks ??
+                        0;
+
+                      return (
+                        <>
+                          <p>
+                            <span className="font-medium">
+                              {name}
+                            </span>{" "}
+                            tiene{" "}
+                            <span className="font-semibold">
+                              {total} track
+                              {total === 1 ? "" : "s"}
+                            </span>{" "}
+                            en la biblioteca.
+                          </p>
+                          {artist?.country && (
+                            <p className="text-xs text-muted-foreground">
+                              País: {artist.country}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* JSON crudo */}
+              <details className="mt-2">
+                <summary className="text-xs text-muted-foreground cursor-pointer">
+                  Alt.: Ver respuesta en formato JSON
+                </summary>
+                <pre className="mt-2 bg-slate-950 text-slate-100 text-xs p-3 rounded-lg overflow-auto max-h-[320px]">
+                  {result === null
+                    ? "Aún no se ha ejecutado ninguna consulta."
+                    : JSON.stringify(result, null, 2)}
+                </pre>
+              </details>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* DERECHA */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>⚡ Exploraciones rápidas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {queryGroups.map((group) => (
+                <div key={group.title} className="space-y-2">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {group.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.description}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((id) => {
+                      const config = QUERY_CONFIGS.find(
+                        (c) => c.id === id
+                      );
+                      if (!config) return null;
+                      const isActive = config.id === selectedId;
+                      return (
+                        <button
+                          key={config.id}
+                          type="button"
+                          onClick={() => setSelectedId(config.id)}
+                          className={`w-full text-left text-xs px-3 py-2 rounded-md border transition ${
+                            isActive
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-muted border-border"
+                          }`}
+                        >
+                          <span className="block font-medium">
+                            {config.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

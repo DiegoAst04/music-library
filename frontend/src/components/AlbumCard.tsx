@@ -1,51 +1,62 @@
-import { Disc3 } from "lucide-react";
 import { Link } from "react-router-dom";
-import React from "react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Disc3 } from "lucide-react";
 
 type AlbumCardProps = {
   title: string;
-  artistName?: string;
-  artistKey?: string;
-  albumKey?: string;
+  artistName: string;
+  artistKey: string;   // URL tipo `/artist/a1`
   year?: number;
-  trackCount?: number;
-  className?: string;
-}
+  albumKey: string;    // key del álbum (ej. "al1")
+  trackCount?: number; // 👉 NUEVO
+};
 
-const AlbumCard: React.FC<AlbumCardProps> = ({
+export function AlbumCard({
   title,
   artistName,
   artistKey,
-  albumKey,
   year,
-  className,
-}) => {
+  albumKey,
+  trackCount,
+}: AlbumCardProps) {
+  const count = trackCount ?? 0;
+  const label =
+    count === 1
+      ? "1 canción"
+      : count > 1
+      ? `${count} canciones`
+      : "Sin canciones";
 
   return (
-    <Link
-      to={`/album/${albumKey}`}
-      className="group flex flex-col gap-3 p-4 rounded-lg transition-all hover:bg-secondary/50 text-left"
-    >
-      <div className="aspect-square rounded-lg bg-gradient-primary flex items-center justify-center transition-transform group-hover:scale-105 overflow-hidden">
-        <Disc3 className="h-16 w-16 text-primary-foreground" />
-      </div>
-      <div className="space-y-1">
-        <h4 className="font-medium text-foreground truncate">{title}</h4>
-          <Link
-            to={`${artistKey}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-primary hover:underline font-medium"
-          >
-            {artistName}
-          </Link>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {year && <span>{year}</span>}
-          {year && <span>•</span>}
-          <span>1 o más tracks</span>
+    <Card className="w-56 overflow-hidden">
+      <CardHeader className="p-3 pb-2">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-md bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
+            <Disc3 className="h-6 w-6 text-slate-100" />
+          </div>
+          <div className="min-w-0">
+            <Link
+              to={`/album/${albumKey}`}
+              className="text-sm font-semibold hover:underline"
+            >
+              {title}
+            </Link>
+            <p className="text-xs text-muted-foreground truncate">
+              <Link to={artistKey} className="hover:underline">
+                {artistName}
+              </Link>
+            </p>
+            {year && (
+              <p className="text-[11px] text-muted-foreground">{year}</p>
+            )}
+          </div>
         </div>
-      </div>
-    </Link>
+      </CardHeader>
+      <CardContent className="px-3 pb-3 pt-1">
+        <p className="text-xs text-muted-foreground">
+          {label} {/* 👈 aquí antes estaba "1 o más tracks" */}
+        </p>
+      </CardContent>
+    </Card>
   );
-};
-
-export { AlbumCard };
+}

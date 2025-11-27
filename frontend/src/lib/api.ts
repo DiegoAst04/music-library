@@ -5,20 +5,37 @@ export const api = axios.create({
   timeout: 15000,
 });
 
-// helpers simples
-export async function apiGet<T = any>(url: string, params?: any): Promise<T> {
+// GET genérico
+export async function apiGet<T = any>(
+  url: string,
+  params?: Record<string, any>
+): Promise<T> {
   const res = await api.get<T>(url, { params });
   return res.data;
 }
-export async function apiPost<T = any>(url: string, data?: any): Promise<T> {
-  const res = await api.post<T>(url, data);
+
+// POST genérico (crear)
+export async function apiPost<T = any>(
+  url: string,
+  body?: any
+): Promise<T> {
+  const res = await api.post<T>(url, body);
   return res.data;
 }
-export async function apiPatch<T = any>(url: string, data?: any): Promise<T> {
-  const res = await api.patch<T>(url, data);
+
+// PATCH genérico (actualizar)
+export async function apiPatch<T = any>(
+  url: string,
+  body?: any
+): Promise<T> {
+  const res = await api.patch<T>(url, body);
   return res.data;
 }
-export async function apiDelete<T = any>(url: string): Promise<T> {
+
+// DELETE genérico (eliminar)
+export async function apiDelete<T = any>(
+  url: string
+): Promise<T> {
   const res = await api.delete<T>(url);
   return res.data;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,29 @@ export default function Index() {
   const { artists, albums, tracks, playlists, loading } = useBackendLibrary();
   const [search, setSearch] = useState("");
 
+  // Mapas para resolver nombres a partir de las keys
+  const artistByKey = useMemo(
+    () => Object.fromEntries(artists.map((a: any) => [a.key, a])),
+    [artists]
+  );
+
+  const albumByKey = useMemo(
+    () => Object.fromEntries(albums.map((al: any) => [al.key, al])),
+    [albums]
+  );
+
+  // Conteo de canciones por álbum
+  const trackCountByAlbumKey = useMemo(
+    () =>
+      tracks.reduce((acc: Record<string, number>, t: any) => {
+        if (t.albumKey) {
+          acc[t.albumKey] = (acc[t.albumKey] || 0) + 1;
+        }
+        return acc;
+      }, {}),
+    [tracks]
+  );
+
   if (loading) {
     return (
       <div className="p-6">
@@ -22,7 +45,7 @@ export default function Index() {
     );
   }
 
-  const filteredTracks = tracks.filter((t) =>
+  const filteredTracks = tracks.filter((t: any) =>
     t.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -41,7 +64,7 @@ export default function Index() {
             to="/queries"
             className="text-sm text-primary hover:underline"
           >
-            Búsqueda avanzada (Consultas) →
+            Explorar Music Library (Consultas) →
           </Link>
         </div>
       </header>
@@ -78,7 +101,6 @@ export default function Index() {
 
           {/* SONGS */}
           <TabsContent value="songs">
-
             {/* Buscador SOLO para tracks */}
             <div className="relative mb-4 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -95,28 +117,31 @@ export default function Index() {
                 <CardTitle>🎵 Tracks</CardTitle>
               </CardHeader>
               <CardContent>
-                <TrackCard
-                  title="Ejemplo"
-                  artistName="Nirvana"
-                  artistUrl="/artist/artist_nirvana_123"
-                  albumName="Nevermind"
-                  albumUrl="/album/album_nevermind_456"
-                  duration={301}
-                />
-
                 <ul className="text-sm">
-                  {filteredTracks.map((t) => (
-                    <li key={t.key}>
-                      <TrackCard
-                        title={t.title}
-                        artistName={t.artistKey || "Artista desconocido"}
-                        artistUrl={`/artist/${t.artistKey}`}
-                        albumName={t.albumKey}
-                        albumUrl={`/album/${t.albumKey}`}
-                        duration={t.duration}
-                      />
-                    </li>
-                  ))}
+                  {filteredTracks.map((t: any) => {
+                    const artist = artistByKey[t.artistKey];
+                    const album = albumByKey[t.albumKey];
+
+                    return (
+                      <li key={t.key}>
+                        <TrackCard
+                          title={t.title}
+                          // si encontramos el artista, usamos su nombre; si no, dejamos el key o "desconocido"
+                          artistName={
+                            artist?.name ??
+                            (t.artistKey || "Artista desconocido")
+                          }
+                          // mantenemos los links como antes
+                          artistUrl={
+                            t.artistKey ? `/artist/${t.artistKey}` : "#"
+                          }
+                          albumName={album?.title ?? t.albumKey}
+                          albumUrl={t.albumKey ? `/album/${t.albumKey}` : "#"}
+                          duration={t.duration}
+                        />
+                      </li>
+                    );
+                  })}
                   {filteredTracks.length === 0 && (
                     <li className="text-sm text-muted-foreground">
                       No se encontraron tracks que coincidan con “{search}”.
@@ -135,7 +160,7 @@ export default function Index() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1 text-sm">
-                  {artists.map((a) => (
+                  {artists.map((a: any) => (
                     <li key={a.key}>
                       <Link
                         to={`/artist/${a.key}`}
@@ -163,18 +188,31 @@ export default function Index() {
                 <CardTitle>💿 Álbumes</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-1 text-sm flex flex-wrap">
-                  {albums.map((al) => (
-                    <li key={al.key}>
-                      <AlbumCard
-                        title={al.title}
-                        artistName={al.artistKey}
-                        artistKey={`/artist/${al.artistKey}`}
-                        year={al.year}
-                        albumKey={al.key}
-                      />
-                    </li>
-                  ))}
+                <ul className="space-y-1 text-sm flex flex-wrap gap-4">
+                  {albums.map((al: any) => {
+                    const artist = al.artistKey
+                      ? artistByKey[al.artistKey]
+                      : undefined;
+                    const artistName =
+                      artist?.name ??
+                      al.artistKey ??
+                      "Artista desconocido";
+
+                    const trackCount = trackCountByAlbumKey[al.key] ?? 0;
+
+                    return (
+                      <li key={al.key}>
+                        <AlbumCard
+                          title={al.title}
+                          artistName={artistName}
+                          artistKey={`/artist/${al.artistKey}`}
+                          year={al.year}
+                          albumKey={al.key}
+                          trackCount={trackCount} // 👈 aquí pasamos el conteo real
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardContent>
             </Card>
@@ -188,7 +226,7 @@ export default function Index() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1 text-sm">
-                  {playlists.map((p) => (
+                  {playlists.map((p: any) => (
                     <li key={p.key}>
                       <Link
                         to={`/playlist/${p.key}`}
